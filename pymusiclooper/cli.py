@@ -33,9 +33,10 @@ click.rich_click.USE_RICH_MARKUP = True
 @click.option("--debug", "-d", is_flag=True, default=False, help="Enables debugging mode.")
 @click.option("--verbose", "-v", is_flag=True, default=False, help="Enables verbose logging output.")
 @click.option("--interactive", "-i", is_flag=True, default=False, help="Enables interactive mode to manually preview/choose the desired loop point.")
+@click.option("--create-brstm", "-c", is_flag=True, default=False, help="Creates a brstm file from the selected loop.")
 @click.option("--samples", "-s", is_flag=True, default=False, help="Display all the loop points shown in interactive mode in sample points instead of the default mm:ss.sss format.")
 @click.version_option(__version__, prog_name="pymusiclooper", message="%(prog)s %(version)s")
-def cli_main(debug, verbose, interactive, samples):
+def cli_main(debug, verbose, interactive, create_brstm, samples):
     """A program for repeating music seamlessly and endlessly, by automatically finding the best loop points."""
     # Store flags in environ instead of passing them as parameters
     if debug:
@@ -51,6 +52,8 @@ def cli_main(debug, verbose, interactive, samples):
         os.environ["PML_INTERACTIVE_MODE"] = "1"
     if samples:
         os.environ["PML_DISPLAY_SAMPLES"] = "1"
+    if create_brstm:
+        os.environ['PML_CREATE_BRSTM'] = "1"
 
     if verbose:
         logging.basicConfig(format="%(message)s", level=logging.INFO, handlers=[RichHandler(level=logging.INFO, console=rich_console, rich_tracebacks=True, show_path=debug, show_time=False, tracebacks_suppress=[click])])
@@ -117,6 +120,7 @@ def play(**kwargs):
 
         in_samples = "PML_DISPLAY_SAMPLES" in os.environ
         interactive_mode = "PML_INTERACTIVE_MODE" in os.environ
+        create_brstm  = "PML_CREATE_BRSTM" in os.environ
 
         chosen_loop_pair = handler.choose_loop_pair(interactive_mode=interactive_mode)
 
@@ -133,6 +137,12 @@ def play(**kwargs):
         rich_console.print("(Press [red]Ctrl+C[/] to stop looping.)")
 
         handler.play_looping(chosen_loop_pair.loop_start, chosen_loop_pair.loop_end)
+
+        if create_brstm:
+            choice = rich_console.input('\nDo you want to encode this loop as brstm (y/N)?')
+            if choice.lower() == 'y':
+                import subprocess
+                subprocess.call(['brstm-encoder', '--loop', str(chosen_loop_pair.loop_start), '--end', str(chosen_loop_pair.loop_end), kwargs["path"]])
 
     except YoutubeDLError:
         # Already logged from youtube.py
